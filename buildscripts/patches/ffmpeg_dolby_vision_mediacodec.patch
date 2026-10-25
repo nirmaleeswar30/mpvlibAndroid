@@ -1,0 +1,77 @@
+diff --git a/libavcodec/mediacodecdec.c b/libavcodec/mediacodecdec.c
+index 0551370..8d3af5a 100644
+--- a/libavcodec/mediacodecdec.c
++++ b/libavcodec/mediacodecdec.c
+@@ -32,6 +32,7 @@
+ #include "libavutil/intreadwrite.h"
+ #include "libavutil/pixfmt.h"
+ #include "libavutil/internal.h"
++#include "libavutil/dovi_meta.h"
+ 
+ #include "avcodec.h"
+ #include "codec_internal.h"
+@@ -353,6 +354,26 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
+         ret = hevc_set_extradata(avctx, format);
+         if (ret < 0)
+             goto done;
++
++        for (int i = 0; i < avctx->nb_coded_side_data; i++) {
++            if (avctx->coded_side_data[i].type == AV_PKT_DATA_DOVI_CONF) {
++                const AVPacketSideData *sd = &avctx->coded_side_data[i];
++                if (sd->size >= sizeof(AVDOVIDecoderConfigurationRecord)) {
++                    const AVDOVIDecoderConfigurationRecord *dovi =
++                        (const AVDOVIDecoderConfigurationRecord *)sd->data;
++                    if (dovi->dv_profile == 5 || dovi->dv_profile == 8 || dovi->dv_profile == 7) {
++                        codec_mime = "video/dolby-vision";
++                        int dv_profile = (dovi->dv_profile == 5) ? 0x20 : 0x100;
++                        ff_AMediaFormat_setInt32(format, "profile", dv_profile);
++                        ff_AMediaFormat_setInt32(format, "level", 0x400);
++                        av_log(avctx, AV_LOG_INFO,
++                               "MediaCodec: Dolby Vision detected (profile %d) -> mime=%s, profile=0x%x\n",
++                               dovi->dv_profile, codec_mime, dv_profile);
++                    }
++                }
++                break;
++            }
++        }
+         break;
+ #endif
+ #if CONFIG_MPEG2_MEDIACODEC_DECODER
+diff --git a/libavcodec/mediacodecdec_common.c b/libavcodec/mediacodecdec_common.c
+index 4fe8998..38eeace 100644
+--- a/libavcodec/mediacodecdec_common.c
++++ b/libavcodec/mediacodecdec_common.c
+@@ -782,9 +782,16 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
+         }
+     }
+ 
+-    profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
+-    if (profile < 0) {
+-        av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
++    if (!strcmp(mime, "video/dolby-vision")) {
++        int32_t dv_profile = -1;
++        ff_AMediaFormat_getInt32(format, "profile", &dv_profile);
++        profile = dv_profile;
++        av_log(avctx, AV_LOG_INFO, "MediaCodec: Looking for DV decoder with profile 0x%x\n", profile);
++    } else {
++        profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
++        if (profile < 0) {
++            av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
++        }
+     }
+ 
+     s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, profile, 0, avctx);
+@@ -792,6 +799,13 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
+         profile = -1;
+         s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, profile, 0, avctx);
+     }
++    if (!s->codec_name && !strcmp(mime, "video/dolby-vision")) {
++        s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, -1, 0, avctx);
++        if (!s->codec_name) {
++            s->codec_name = av_strdup("c2.qti.dv.decoder");
++            av_log(avctx, AV_LOG_INFO, "MediaCodec: Direct fallback to %s\n", s->codec_name);
++        }
++    }
+     if (!s->codec_name) {
+         av_log(avctx, AV_LOG_INFO, "Failed to getCodecNameByType(%s, %d)\n", mime, profile);
+         // getCodecNameByType() can fail due to missing JVM, while NDK

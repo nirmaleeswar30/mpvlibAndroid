@@ -14,6 +14,9 @@ fi
 if ! git apply --reverse --check ../../patches/ffmpeg_force_mpegts.patch 2>/dev/null; then
 	git apply ../../patches/ffmpeg_force_mpegts.patch
 fi
+if ! git apply --reverse --check ../../patches/ffmpeg_dolby_vision_mediacodec.patch 2>/dev/null; then
+	git apply ../../patches/ffmpeg_dolby_vision_mediacodec.patch
+fi
 
 mkdir -p _build$ndk_suffix
 cd _build$ndk_suffix

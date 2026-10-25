@@ -26,6 +26,9 @@ fi
 if ! git -C ffmpeg apply --reverse --check ../../patches/ffmpeg_force_mpegts.patch 2>/dev/null; then
 	git -C ffmpeg apply ../../patches/ffmpeg_force_mpegts.patch
 fi
+if ! git -C ffmpeg apply --reverse --check ../../patches/ffmpeg_dolby_vision_mediacodec.patch 2>/dev/null; then
+	git -C ffmpeg apply ../../patches/ffmpeg_dolby_vision_mediacodec.patch
+fi
 
 # freetype2
 if [ ! -d freetype2 ]; then
