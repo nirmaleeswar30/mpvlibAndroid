@@ -1,5 +1,5 @@
 diff --git a/libavcodec/mediacodecdec.c b/libavcodec/mediacodecdec.c
-index 0551370..8d3af5a 100644
+index bc176d80..80f1ef3e 100644
 --- a/libavcodec/mediacodecdec.c
 +++ b/libavcodec/mediacodecdec.c
 @@ -32,6 +32,7 @@
@@ -10,14 +10,14 @@ index 0551370..8d3af5a 100644
  
  #include "avcodec.h"
  #include "codec_internal.h"
-@@ -353,6 +354,26 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
+@@ -351,6 +352,26 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
          ret = hevc_set_extradata(avctx, format);
          if (ret < 0)
              goto done;
 +
-+        for (int i = 0; i < avctx->nb_coded_side_data; i++) {
-+            if (avctx->coded_side_data[i].type == AV_PKT_DATA_DOVI_CONF) {
-+                const AVPacketSideData *sd = &avctx->coded_side_data[i];
++        for (int j = 0; j < avctx->nb_coded_side_data; j++) {
++            if (avctx->coded_side_data[j].type == AV_PKT_DATA_DOVI_CONF) {
++                const AVPacketSideData *sd = &avctx->coded_side_data[j];
 +                if (sd->size >= sizeof(AVDOVIDecoderConfigurationRecord)) {
 +                    const AVDOVIDecoderConfigurationRecord *dovi =
 +                        (const AVDOVIDecoderConfigurationRecord *)sd->data;
@@ -38,10 +38,10 @@ index 0551370..8d3af5a 100644
  #endif
  #if CONFIG_MPEG2_MEDIACODEC_DECODER
 diff --git a/libavcodec/mediacodecdec_common.c b/libavcodec/mediacodecdec_common.c
-index 4fe8998..38eeace 100644
+index 9a627c06..d31b168c 100644
 --- a/libavcodec/mediacodecdec_common.c
 +++ b/libavcodec/mediacodecdec_common.c
-@@ -782,9 +782,16 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
+@@ -772,12 +772,26 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
          }
      }
  
@@ -61,10 +61,6 @@ index 4fe8998..38eeace 100644
      }
  
      s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, profile, 0, avctx);
-@@ -792,6 +799,13 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
-         profile = -1;
-         s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, profile, 0, avctx);
-     }
 +    if (!s->codec_name && !strcmp(mime, "video/dolby-vision")) {
 +        s->codec_name = ff_AMediaCodecList_getCodecNameByType(mime, -1, 0, avctx);
 +        if (!s->codec_name) {
@@ -73,5 +69,5 @@ index 4fe8998..38eeace 100644
 +        }
 +    }
      if (!s->codec_name) {
-         av_log(avctx, AV_LOG_INFO, "Failed to getCodecNameByType(%s, %d)\n", mime, profile);
          // getCodecNameByType() can fail due to missing JVM, while NDK
+         // mediacodec can be used without JVM.
