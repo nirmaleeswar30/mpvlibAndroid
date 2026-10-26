@@ -1,5 +1,5 @@
 diff --git a/libavcodec/mediacodecdec.c b/libavcodec/mediacodecdec.c
-index bc176d80..80f1ef3e 100644
+index bc176d8..80f1ef3 100644
 --- a/libavcodec/mediacodecdec.c
 +++ b/libavcodec/mediacodecdec.c
 @@ -32,6 +32,7 @@
@@ -38,10 +38,10 @@ index bc176d80..80f1ef3e 100644
  #endif
  #if CONFIG_MPEG2_MEDIACODEC_DECODER
 diff --git a/libavcodec/mediacodecdec_common.c b/libavcodec/mediacodecdec_common.c
-index 9a627c06..d31b168c 100644
+index 9a627c0..1bfb604 100644
 --- a/libavcodec/mediacodecdec_common.c
 +++ b/libavcodec/mediacodecdec_common.c
-@@ -772,12 +772,26 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
+@@ -772,12 +772,38 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
          }
      }
  
@@ -49,10 +49,22 @@ index 9a627c06..d31b168c 100644
 -    if (profile < 0) {
 -        av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
 +    if (!strcmp(mime, "video/dolby-vision")) {
-+        int32_t dv_profile = -1;
-+        ff_AMediaFormat_getInt32(format, "profile", &dv_profile);
-+        profile = dv_profile;
-+        av_log(avctx, AV_LOG_INFO, "MediaCodec: Looking for DV decoder with profile 0x%x\n", profile);
++        if (!s->surface) {
++            av_log(avctx, AV_LOG_INFO, "MediaCodec: Dolby Vision detected without surface (copy mode) -> falling back to video/hevc\n");
++            mime = "video/hevc";
++            ff_AMediaFormat_setString(format, "mime", mime);
++            profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
++            if (profile < 0) {
++                av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
++            } else {
++                ff_AMediaFormat_setInt32(format, "profile", profile);
++            }
++        } else {
++            int32_t dv_profile = -1;
++            ff_AMediaFormat_getInt32(format, "profile", &dv_profile);
++            profile = dv_profile;
++            av_log(avctx, AV_LOG_INFO, "MediaCodec: Looking for DV decoder with profile 0x%x\n", profile);
++        }
 +    } else {
 +        profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
 +        if (profile < 0) {
