@@ -1,71 +1,45 @@
-diff --git a/libavcodec/mediacodecdec.c b/libavcodec/mediacodecdec.c
-index bc176d8..80f1ef3 100644
---- a/libavcodec/mediacodecdec.c
-+++ b/libavcodec/mediacodecdec.c
+diff --git a/libavcodec/mediacodecdec_common.c b/libavcodec/mediacodecdec_common.c
+index 9a627c0..594bf24 100644
+--- a/libavcodec/mediacodecdec_common.c
++++ b/libavcodec/mediacodecdec_common.c
 @@ -32,6 +32,7 @@
- #include "libavutil/intreadwrite.h"
- #include "libavutil/pixfmt.h"
- #include "libavutil/internal.h"
+ #include "libavutil/time.h"
+ #include "libavutil/timestamp.h"
+ #include "libavutil/channel_layout.h"
 +#include "libavutil/dovi_meta.h"
  
  #include "avcodec.h"
- #include "codec_internal.h"
-@@ -351,6 +352,26 @@ static av_cold int mediacodec_decode_init(AVCodecContext *avctx)
-         ret = hevc_set_extradata(avctx, format);
-         if (ret < 0)
-             goto done;
-+
-+        for (int j = 0; j < avctx->nb_coded_side_data; j++) {
-+            if (avctx->coded_side_data[j].type == AV_PKT_DATA_DOVI_CONF) {
-+                const AVPacketSideData *sd = &avctx->coded_side_data[j];
-+                if (sd->size >= sizeof(AVDOVIDecoderConfigurationRecord)) {
-+                    const AVDOVIDecoderConfigurationRecord *dovi =
-+                        (const AVDOVIDecoderConfigurationRecord *)sd->data;
-+                    if (dovi->dv_profile == 5 || dovi->dv_profile == 8 || dovi->dv_profile == 7) {
-+                        codec_mime = "video/dolby-vision";
-+                        int dv_profile = (dovi->dv_profile == 5) ? 0x20 : 0x100;
-+                        ff_AMediaFormat_setInt32(format, "profile", dv_profile);
-+                        ff_AMediaFormat_setInt32(format, "level", 0x400);
-+                        av_log(avctx, AV_LOG_INFO,
-+                               "MediaCodec: Dolby Vision detected (profile %d) -> mime=%s, profile=0x%x\n",
-+                               dovi->dv_profile, codec_mime, dv_profile);
-+                    }
-+                }
-+                break;
-+            }
-+        }
-         break;
- #endif
- #if CONFIG_MPEG2_MEDIACODEC_DECODER
-diff --git a/libavcodec/mediacodecdec_common.c b/libavcodec/mediacodecdec_common.c
-index 9a627c0..1bfb604 100644
---- a/libavcodec/mediacodecdec_common.c
-+++ b/libavcodec/mediacodecdec_common.c
-@@ -772,12 +772,38 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
+ #include "decode.h"
+@@ -772,12 +773,43 @@ static int mediacodec_dec_get_video_codec(AVCodecContext *avctx, MediaCodecDecCo
          }
      }
  
 -    profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
 -    if (profile < 0) {
 -        av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
-+    if (!strcmp(mime, "video/dolby-vision")) {
-+        if (!s->surface) {
-+            av_log(avctx, AV_LOG_INFO, "MediaCodec: Dolby Vision detected without surface (copy mode) -> falling back to video/hevc\n");
-+            mime = "video/hevc";
-+            ff_AMediaFormat_setString(format, "mime", mime);
-+            profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
-+            if (profile < 0) {
-+                av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
-+            } else {
-+                ff_AMediaFormat_setInt32(format, "profile", profile);
++    if (s->surface && avctx->codec_id == AV_CODEC_ID_HEVC) {
++        const AVPacketSideData *sd = ff_get_coded_side_data(avctx, AV_PKT_DATA_DOVI_CONF);
++        if (sd && sd->size >= sizeof(AVDOVIDecoderConfigurationRecord)) {
++            const AVDOVIDecoderConfigurationRecord *dovi =
++                (const AVDOVIDecoderConfigurationRecord *)sd->data;
++            if (dovi->dv_profile == 5 || dovi->dv_profile == 8 || dovi->dv_profile == 7) {
++                int dv_profile = (dovi->dv_profile == 5) ? 0x20 : 0x100;
++                mime = "video/dolby-vision";
++                ff_AMediaFormat_setString(format, "mime", mime);
++                ff_AMediaFormat_setInt32(format, "profile", dv_profile);
++                if (dovi->dv_bl_signal_compatibility_id) {
++                    ff_AMediaFormat_setInt32(format, "bl_compatibility_id",
++                                             dovi->dv_bl_signal_compatibility_id);
++                }
++                profile = dv_profile;
++                av_log(avctx, AV_LOG_INFO,
++                       "MediaCodec: Dolby Vision detected on surface (profile %d, bl_compat %d) -> mime=%s, profile=0x%x\n",
++                       dovi->dv_profile, dovi->dv_bl_signal_compatibility_id, mime, dv_profile);
 +            }
-+        } else {
-+            int32_t dv_profile = -1;
-+            ff_AMediaFormat_getInt32(format, "profile", &dv_profile);
-+            profile = dv_profile;
-+            av_log(avctx, AV_LOG_INFO, "MediaCodec: Looking for DV decoder with profile 0x%x\n", profile);
 +        }
-+    } else {
++    }
++
++    if (strcmp(mime, "video/dolby-vision")) {
 +        profile = ff_AMediaCodecProfile_getProfileFromAVCodecContext(avctx);
 +        if (profile < 0) {
 +            av_log(avctx, AV_LOG_WARNING, "Unsupported or unknown profile\n");
