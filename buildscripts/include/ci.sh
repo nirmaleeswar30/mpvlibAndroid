@@ -77,14 +77,29 @@ elif [ "$1" = "install" ]; then
 	msg "Fetching SDK + NDK"
 	IN_CI=1 ./include/download-sdk.sh
 
+	msg "Fetching libplacebo"
+	if [ ! -d deps/libplacebo ]; then
+		git clone --recursive https://github.com/haasn/libplacebo deps/libplacebo
+		git -C deps/libplacebo checkout 0d043c7f6f79cd3687c023454bdacbe615e4d96f
+		git -C deps/libplacebo submodule update --init --recursive
+	else
+		git -C deps/libplacebo fetch origin
+		git -C deps/libplacebo checkout 0d043c7f6f79cd3687c023454bdacbe615e4d96f
+	fi
+
 	msg "Fetching mpv"
 	if [ ! -d deps/mpv ]; then
-		git clone --depth 1 https://github.com/mpv-player/mpv deps/mpv
+		git clone https://github.com/mpv-player/mpv deps/mpv
+		git -C deps/mpv checkout c1529642089bfebfc928a1c1664638a7a5d219ba
 	else
-		git -C deps/mpv fetch --depth 1 origin master
-		git -C deps/mpv reset --hard origin/master
+		git -C deps/mpv fetch origin master
+		git -C deps/mpv checkout c1529642089bfebfc928a1c1664638a7a5d219ba
 	fi
-	git -C deps/mpv apply ../../patches/mpv_video_shaders.patch
+	if ! git -C deps/mpv apply --reverse --check ../../patches/mpv_video_shaders.patch 2>/dev/null; then
+		git -C deps/mpv apply ../../patches/mpv_video_shaders.patch
+	fi
+
+	python3 scripts/prepare-mpvflow.py --mpv-dir deps/mpv --libplacebo-dir deps/libplacebo
 
 	msg "Trying to fetch existing prefix"
 	mkdir -p prefix

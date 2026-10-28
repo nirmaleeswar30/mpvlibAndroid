@@ -189,8 +189,12 @@ if [ ! -d lcms2 ]; then
 	git clone --depth 1 --branch "lcms${v_lcms2}" https://github.com/mm2/Little-CMS.git lcms2
 fi
 
-# libplacebo - use GitHub mirror (haasn/libplacebo)
-[ ! -d libplacebo ] && git clone --recursive https://github.com/haasn/libplacebo
+# libplacebo - use GitHub mirror (haasn/libplacebo pinned for MPVFlow)
+if [ ! -d libplacebo ]; then
+	git clone --recursive https://github.com/haasn/libplacebo
+	git -C libplacebo checkout 0d043c7f6f79cd3687c023454bdacbe615e4d96f
+	git -C libplacebo submodule update --init --recursive
+fi
 
 # curl
 if [ ! -d curl ]; then
@@ -199,10 +203,15 @@ if [ ! -d curl ]; then
 		tar -xz -C curl --strip-components=1
 fi
 
-# mpv
-[ ! -d mpv ] && git clone https://github.com/mpv-player/mpv
+# mpv - pinned for MPVFlow
+if [ ! -d mpv ]; then
+	git clone https://github.com/mpv-player/mpv
+	git -C mpv checkout c1529642089bfebfc928a1c1664638a7a5d219ba
+fi
 if ! git -C mpv apply --reverse --check ../../patches/mpv_video_shaders.patch 2>/dev/null; then
 	git -C mpv apply ../../patches/mpv_video_shaders.patch
 fi
+
+python3 ../scripts/prepare-mpvflow.py --mpv-dir mpv --libplacebo-dir libplacebo
 
 cd ..
