@@ -208,10 +208,10 @@ if [ ! -d mpv ]; then
 	git clone https://github.com/mpv-player/mpv
 	git -C mpv checkout c1529642089bfebfc928a1c1664638a7a5d219ba
 fi
-if ! git -C mpv apply --reverse --check ../../patches/mpv_video_shaders.patch 2>/dev/null; then
-	git -C mpv apply ../../patches/mpv_video_shaders.patch
-fi
-
 python3 ../scripts/prepare-mpvflow.py --mpv-dir mpv --libplacebo-dir libplacebo
+
+if ! grep -q "The source is already RGB" mpv/video/csputils.c; then
+	patch -d mpv -p1 --forward --batch -i ../patches/mpv_video_shaders.patch
+fi
 
 cd ..

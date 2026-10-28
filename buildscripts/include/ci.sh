@@ -95,11 +95,12 @@ elif [ "$1" = "install" ]; then
 		git -C deps/mpv fetch origin master
 		git -C deps/mpv checkout c1529642089bfebfc928a1c1664638a7a5d219ba
 	fi
-	if ! git -C deps/mpv apply --reverse --check ../../patches/mpv_video_shaders.patch 2>/dev/null; then
-		git -C deps/mpv apply ../../patches/mpv_video_shaders.patch
-	fi
-
 	python3 scripts/prepare-mpvflow.py --mpv-dir deps/mpv --libplacebo-dir deps/libplacebo
+
+	msg "Applying mpv_video_shaders.patch"
+	if ! grep -q "The source is already RGB" deps/mpv/video/csputils.c; then
+		patch -d deps/mpv -p1 --forward --batch -i ../../patches/mpv_video_shaders.patch
+	fi
 
 	msg "Trying to fetch existing prefix"
 	mkdir -p prefix
