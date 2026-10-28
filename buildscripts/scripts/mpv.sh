@@ -55,7 +55,7 @@ patch_mpv_iconv_dependency () {
 
 unset CC CXX # meson wants these unset
 
-export LDFLAGS="$LDFLAGS -L$prefix_dir/lib -lnativewindow -lmediandk"
+export LDFLAGS="$LDFLAGS -L$prefix_dir/lib"
 export CPPFLAGS="$CPPFLAGS -I$prefix_dir/include"
 
 check_iconv_files
