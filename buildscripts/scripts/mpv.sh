@@ -55,6 +55,7 @@ patch_mpv_iconv_dependency () {
 
 unset CC CXX # meson wants these unset
 
+export CFLAGS="$CFLAGS -Wno-error=unguarded-availability"
 export LDFLAGS="$LDFLAGS -L$prefix_dir/lib"
 export CPPFLAGS="$CPPFLAGS -I$prefix_dir/include"
 

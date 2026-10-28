@@ -1041,6 +1041,10 @@ def main() -> None:
             "\n# The direct MPVFlow compute stage is built only for Android.\n"
             "if host_machine.system() == 'android'\n"
             f"    sources += files('{gpu_source}', '{capture_io_source}', '{opencl_sources[0]}', '{opencl_sources[1]}', '{opencl_sources[2]}', '{opencl_sources[3]}')\n"
+            "    nativewindow = cc.find_library('nativewindow', required: false)\n"
+            "    if nativewindow.found()\n"
+            "        dependencies += nativewindow\n"
+            "    endif\n"
             "endif\n"
             f"{meson_marker}\n"
         )
